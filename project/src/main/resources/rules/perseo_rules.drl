@@ -1,0 +1,767 @@
+//created on: 1 nov. 2020
+package rules
+
+//list any import classes here.
+import mito_perseo.*;
+import java.util.List;
+import java.util.LinkedList;
+
+//declare any global variables here
+
+// REGLAS GENERALES, COMUNES A TODOS LOS MITOS
+rule "Mortal puede obtener poder"
+	salience 30
+    when
+        $m : Mortal()
+        Tiene($obj:objetoReceptor instanceof ObjetoDivino, sujeto == $m)
+        $p : Poder(objeto == $obj)
+    then
+    	insert(new Capacidad($m, $p));
+    	System.out.println($obj.getNombre() + " otorga Capacidad " + $p.getClass().getSimpleName() + " a " + $m.getNombre() + ".");
+end
+
+rule "Apresar"
+	salience 25
+    when
+    	$a : Apresar($apresador:sujeto, $presa:serReceptor)
+    	$l : Libre(ser == $presa)
+    then
+    	retract($l);
+    	insert(new Preso($presa, $apresador));
+    	retract($a);
+    	System.out.println($apresador.getNombre() + " apresa a " + $presa.getNombre() + ".");
+end
+
+rule "Liberar"
+	salience 25
+    when
+    	Liberar($liberado:serReceptor)
+    	$p : Preso(ser == $liberado)
+    then
+    	retract($p);
+    	insert(new Libre($liberado));
+    	System.out.println($liberado.getNombre() + " ha sido liberado.");
+end
+
+rule "Robar"
+	salience 25
+	no-loop true
+    when
+    	$r : Robar($obj:objetoReceptor, $ladron:sujeto, $robado:serRobado)
+    	$t : Tiene(objetoReceptor == $obj, sujeto == $robado)
+    then
+    	retract($t);
+    	insert(new Tiene($obj, $ladron));
+    	retract($r);
+    	System.out.println($ladron.getNombre() + " roba " + $obj.getNombre() + " a " + $robado.getNombre() + ".");
+end
+
+rule "Perder"
+	salience 25
+    when
+    	$p : Perder($obj:objetoReceptor, $perdedor:sujeto)
+    	$t : Tiene(objetoReceptor == $obj, sujeto == $perdedor)
+    then
+    	retract($t);
+    	retract($p);
+    	System.out.println($perdedor.getNombre() + " pierde " + $obj.getNombre() + ".");
+end
+
+rule "Regalar"
+	salience 25
+	no-loop true
+    when
+    	$r : Regalar($obj:objetoReceptor, $ofertador:sujeto, $receptor:serReceptorRegalo)
+    	$t : Tiene(objetoReceptor == $obj, sujeto == $ofertador)
+    then
+    	retract($t);
+    	insert(new Tiene($obj, $receptor));
+    	retract($r);
+    	System.out.println($ofertador.getNombre() + " regala " + $obj.getNombre() + " a " + $receptor.getNombre() + ".");
+end
+
+rule "Petrificar"
+	salience 25
+    when
+    	Petrificar($s:sujeto, $c:serReceptor)
+    	$e : Vivo(ser == $c)
+    then
+    	retract($e);
+    	insert(new Muerto($c));
+    	System.out.println($s.getNombre() + " petrifica a " + $c.getNombre() + ".");
+end
+
+rule "Matar"
+	salience 25
+    when
+    	Matar($s:sujeto, $c:serReceptor)
+    	$e : Vivo(ser == $c)
+    then
+    	retract($e);
+    	insert(new Despojar($s, $c));
+    	insert(new Muerto($c));
+    	System.out.println($c.getNombre() + " ha muerto.");
+end
+
+rule "Despojar"
+	salience 25
+    when
+    	Despojar($s:sujeto, $c:serReceptor)
+    	Tiene($obj:objetoReceptor, sujeto == $c)
+    then
+    	insert(new Robar($obj, $s, $c));
+end
+
+rule "Obtener"
+	salience 24
+	when
+		$o : Obtener($obj:objetoReceptor, $receptor:sujeto)
+	then
+		retract($o);
+		insert(new Tiene($obj, $receptor));
+		System.out.println($receptor.getNombre() + " obtiene " + $obj.getNombre() + ".");
+end
+
+rule "Heroe obtiene objeto de Dios"
+	salience 20
+	when
+	    $h : Heroe()
+	    Libre(ser == $h)
+	    Favorecido(sujeto == $h, $d:serReceptor)
+	    Tiene($obj:objetoReceptor, sujeto == $d)
+	then
+		insert(new Regalar($obj, $d, $h));
+	    System.out.println($h.getNombre() + " puede obtener " + $obj.getNombre() + " debido a tener el favor de " + $d.getNombre() + ".");
+end   
+        
+rule "Un Heroe puede liberar a un Mortal"
+	salience 20
+    when
+    	$a : Mortal()
+    	Preso(ser == $a, $apresador:apresador)
+        $h : Heroe()
+        Matar(sujeto == $h, serReceptor == $apresador)
+    then
+    	insert(new Liberar($h, $a));
+    	System.out.println($h.getNombre() + " puede liberar a " + $a.getNombre() + " debido a matar a " + $apresador.getNombre() + ".");
+end
+
+rule "Heroes se pelean"
+	salience 0
+	when
+		$h1 : Heroe()
+		$h2 : Heroe(nombre != $h1.getNombre())
+		Capacidad(ser == $h1)
+		Capacidad(ser == $h2)
+		Tiene(objetoReceptor instanceof Arma, sujeto == $h1)
+		Tiene(objetoReceptor instanceof Arma, sujeto == $h2)
+		eval($h1.getFuerza() < $h2.getFuerza())
+	then
+		insert(new Matar($h2, $h1));
+		System.out.println("Los Heroes " + $h1.getNombre() + " y " + $h2.getNombre() + " se baten en duelo.");
+end
+
+// MITO DE PERSEO
+
+rule "Se puede liberar a Ceto"
+	salience 21
+    when
+    	$d : DiosMayor(nombre == "Poseidón")
+    	$c : Criatura(nombre == "Ceto")
+        $h : Humano(nombre == "Casiopea")
+        $p : Preso(ser == $c, apresador == $d)
+        Enfado(sujeto == $h, serReceptor == $d)
+    then
+    	retract($p);
+    	insert(new Libre($c));
+    	System.out.println("Ceto queda libre debido al enojo de Poseidón hacia Casiopea.");
+end
+
+rule "Andrómeda puede quedar presa de Ceto"
+	salience 21
+    when
+        $h : Humano(nombre == "Andrómeda")
+        $c : Criatura(nombre == "Ceto")
+        $al : Libre(ser == $h)
+        Libre(ser == $c)
+    then
+    	insert (new Apresar($c, $h));
+    	System.out.println("Andrómeda puede quedar presa debido a estar Ceto libre.");
+end
+
+rule "Heroe entrega el Escudo de Bronce"
+	salience 10
+	when
+	 	$obj : ObjetoNormal(nombre == "Escudo de Bronce")
+	    $d : DiosMayor(nombre == "Hefesto")
+	    $h : Heroe()
+	    Libre(ser == $h)
+	    Favorecido(sujeto == $h, serReceptor == $d)
+	    $t : Tiene(objetoReceptor == $obj, sujeto == $h)
+	then
+		insert(new Regalar($obj, $h, $d));
+		insert(new Pulir($obj, $d));
+	    System.out.println($h.getNombre() + " puede entregar el Escudo de Bronce a Hefesto.");
+end
+
+rule "Pulir Escudo de Bronce"
+	salience 25
+	when
+	 	$obj : ObjetoNormal(nombre == "Escudo de Bronce")
+	    $d : DiosMayor(nombre == "Hefesto")
+	    $t : Tiene(objetoReceptor == $obj, sujeto == $d)
+	then
+		ObjetoDivino pulido = new ObjetoDivino("Escudo-Espejo");
+		insert(pulido);
+		insert(new Espejo(pulido));
+		insert(new Tiene(pulido, $d));
+		retract($t);
+		retract($obj);
+	    System.out.println("Hefesto pule el Escudo de Bronce y obtiene Escudo-Espejo.");
+end
+
+rule "Heroe puede localizar a las Grayas"
+	salience 1
+	no-loop true
+    when
+    	$a : DiosMayor(nombre == "Atenea")
+    	$he : DiosMayor(nombre == "Hermes")
+        $h : Heroe ()
+        Libre(ser == $h)
+        $g : DiosMenor (nombre == "Las Grayas")
+        Favorecido(sujeto == $h, serReceptor == $a)
+        Favorecido(sujeto == $h, serReceptor == $he)
+        not Encontrar(sujeto == $h, serReceptor == $g)
+    then
+    	insert(new Encontrar($h, $g));
+    	System.out.println($h.getNombre() + " localiza a las Grayas debido a tener el favor de Hermes y Atenea.");
+end
+
+rule "Heroe puede obtener Ojo/Diente de las Grayas"
+	salience 1
+    when
+    	$obj : ObjetoNormal(nombre == "Ojo/Diente de las Grayas")
+    	$c : DiosMenor(nombre == "Las Grayas")
+    	Tiene(objetoReceptor == $obj, sujeto == $c)
+    	$h : Heroe ()
+    	Libre(ser == $h)
+    	Encontrar(sujeto == $h, serReceptor == $c)
+    	Capacidad(ser == $h, poder instanceof Invisibilidad)
+    then
+    	insert(new Robar($obj, $h, $c));
+    	System.out.println($h.getNombre() + " puede obtener Ojo/Diente de las Grayas debido Invisibilidad y las Grayas localizada.");
+end
+
+rule "Heroe puede localizar a las ninfas"
+	salience 1
+	no-loop true
+    when
+    	$obj : ObjetoNormal(nombre == "Ojo/Diente de las Grayas")
+    	$n : Criatura(nombre == "Las Ninfas")
+    	$c : DiosMenor(nombre == "Las Grayas")
+    	$h : Heroe()
+    	Libre(ser == $h)
+    	$t : Tiene(objetoReceptor == $obj, sujeto == $h)
+    	Encontrar(sujeto == $h, serReceptor == $c)
+    	not Encontrar(sujeto == $h, serReceptor == $n)
+    then
+    	insert(new Encontrar($h, $n));
+    	retract($t);
+    	Tiene ojoGrayas = new Tiene($obj, $c);
+    	insert(ojoGrayas);
+    	System.out.println($h.getNombre() + " localiza a las Ninfas debido a intercambio de Ojo/Diente de las Grayas con las Grayas.");
+end
+
+rule "Heroe puede obtener Zurrón Mágico"
+	salience 2
+    when
+    	$obj : ObjetoNormal(nombre == "Zurrón Mágico")
+    	$n : Criatura(nombre == "Las Ninfas")
+    	Tiene(objetoReceptor == $obj, sujeto == $n)
+    	$h : Heroe()
+    	Libre(ser == $h)
+    	Encontrar(sujeto == $h, serReceptor == $n)
+    then
+    	insert(new Regalar($obj, $n, $h));
+    	System.out.println($h.getNombre() + " puede obtener el Zurrón Mágico debido a haber localizado a Las Ninfas.");
+end
+
+rule "Heroe obtiene las Sandalias Aladas"
+	salience 2
+	when
+		$obj : ObjetoDivino(nombre == "Sandalias Aladas")
+	    $n : Criatura(nombre == "Las Ninfas")
+	    Tiene(objetoReceptor == $obj, sujeto == $n)
+	    $h : Heroe()
+	    Libre(ser == $h)
+	    Encontrar(sujeto == $h, serReceptor == $n)
+	then
+	    insert(new Regalar($obj, $n, $h));
+	    System.out.println($h.getNombre() + " puede obtener las Sandalias Aladas debido a haber localizado a Las Ninfas.");
+end
+
+rule "Heroe puede matar a Medusa"
+	salience 3
+    when
+    	$obj : Arma()
+    	$h : Heroe()
+    	Libre(ser == $h)
+    	$c : Criatura(nombre == "Medusa")
+    	not Muerto(ser == $c)
+    	$zur : ObjetoNormal(nombre == "Zurrón Mágico")
+    	Tiene(objetoReceptor == $zur, sujeto == $h)
+    	Tiene(objetoReceptor == $obj, sujeto == $h)
+    	Capacidad(ser == $h, poder instanceof Invisibilidad)
+    	Capacidad(ser == $h, poder instanceof Espejo)
+    	Capacidad(ser == $h, poder instanceof Vuelo)
+    then
+    	insert(new Matar($h, $c));
+    	System.out.println($h.getNombre() + " puede matar a Medusa debido a tener " + $obj.getNombre() + ", Espejo, Invisibilidad, Vuelo y Zurrón Mágico.");
+end
+
+rule "Heroe puede matar a Ceto"
+	salience 3
+    when
+    	$obj : ObjetoDivino(nombre == "Cabeza de Medusa")
+        $h : Heroe()
+        Tiene(objetoReceptor == $obj, sujeto == $h)
+        $c : Criatura(nombre == "Ceto")
+        not Muerto(ser == $c)
+        Libre(ser == $c)
+    then
+    	insert(new Petrificar($h, $c));
+    	System.out.println($h.getNombre() + " puede matar Ceto debido a tener Cabeza de Medusa.");
+end
+
+// MITO DE TESEO
+
+rule "Enamorar"
+	salience 2
+	when
+		$hu : Humano(nombre == "Ariadna")
+		$d : DiosMayor(nombre == "Afrodita")
+		$h : Heroe()
+		Libre(ser == $h)
+		Libre(ser == $hu)
+		not Enamorar(sujeto == $h, serReceptor == $hu)
+		Favorecido(sujeto == $h, serReceptor == $d)
+	then
+		insert(new Enamorar($h, $hu));
+		System.out.println($h.getNombre() + " y " + $hu.getNombre() + " se enamoran gracias a tener el favor de Afrodita <3.");
+end
+
+rule "Ariadna entrega hilo"
+	salience 10
+	when
+		$hu : Humano(nombre == "Ariadna")
+		$h : Heroe()
+		Libre(ser == $h)
+		Libre(ser == $hu)
+		Enamorar(sujeto == $h, serReceptor == $hu)
+		$obj : ObjetoNormal(nombre == "Hilo de Ariadna")
+    	Tiene(objetoReceptor == $obj, sujeto == $hu)
+    	
+    then
+    	insert(new Regalar($obj, $hu, $h));
+    	System.out.println("Ariadna, presa de un amor inconmensurable, está dispuesta a entregar el Hilo de Ariadna a " + $h.getNombre() + ".");
+end
+
+rule "Humano puede quedar preso de Minos"
+	salience 10
+	when
+		$h : Humano(nombre == "Minos")
+		$p : Mortal(nombre != "Minos")
+		$c : Criatura(nombre == "Minotauro")
+		Muerto(ser == $c)
+		$e : Enfado(sujeto == $p, serReceptor == $h)
+		Libre(ser == $h)
+		Libre(ser == $p)
+	then
+		retract($e);
+		insert(new Apresar($h, $p));
+		System.out.println($p.getNombre() + " puede quedar preso de Minos debido a haberlo enfadado y estar muerto el Minotauro.");
+end
+
+rule "Humano puede quedar preso de Minotauro"
+	salience 10
+	when
+		$h : Humano(nombre == "Minos")
+		$p : Mortal(nombre != "Minos")
+		$c : Criatura(nombre == "Minotauro")
+		Preso(ser == $c, apresador == $h);
+		$e : Enfado(sujeto == $p, serReceptor == $h)
+		Libre(ser == $h)
+		Libre(ser == $p)
+	then
+		retract($e);
+		insert(new Apresar($c, $p));
+		System.out.println($p.getNombre() + " puede quedar preso del Minotauro.");
+end
+
+rule "Heroe puede matar al Minotauro"
+	salience 3
+	when
+		$h : Heroe()
+		$m : Humano(nombre == "Minos")
+    	$min : Criatura(nombre == "Minotauro")
+		$hilo : ObjetoNormal(nombre == "Hilo de Ariadna")
+    	Tiene(objetoReceptor == $hilo, sujeto == $h)
+    	$arma : Arma()
+    	Tiene(objetoReceptor == $arma, sujeto == $h)
+    	Preso(ser == $min, apresador == $m)
+    	Libre(ser == $h)
+    then
+    	insert(new Matar($h, $min));
+    	System.out.println($h.getNombre() + " puede entrar al laberinto y matar al Minotauro gracias a tener el Hilo de Ariadna y el arma " + $arma.getNombre() + ".");
+end	
+
+rule "Minos se enfada por la muerte del Minotauro"
+	salience 10
+	when
+		$m : Humano(nombre == "Minos")
+		$min : Criatura(nombre == "Minotauro")
+		Muerto(ser == $min)
+		$ica : Humano(nombre == "Ícaro")
+		Libre(ser == $ica)
+		$de : Humano(nombre == "Dédalo")
+		Libre(ser == $de)
+	then
+		insert(new Enfado($ica, $m));
+		insert(new Enfado($de, $m));
+		System.out.println("Minos se enfada con Ícaro y Dédalo por la muerte del Minotauro");
+end
+
+rule "Dédalo puede recolectar cera y plumas"
+	salience 10
+	when
+		$m : Humano(nombre == "Minos")
+		$min : Criatura(nombre == "Minotauro")
+		$h : Humano(nombre == "Dédalo")
+		$ceraPlumas : ObjetoNormal(nombre == "Cera y Plumas")
+		not Tiene(objetoReceptor == $ceraPlumas)
+		Preso(ser == $h, apresador == $m)
+		Muerto(ser == $min)
+	then
+		insert(new Obtener($ceraPlumas, $h));
+		System.out.println("Dédalo decide buscar Cera y Plumas para escapar del laberinto.");
+end
+
+rule "Dédalo crea las alas"
+	salience 10
+	when
+		$d : Humano(nombre == "Dédalo")
+		$i : Humano(nombre == "Ícaro")
+		$m : Humano(nombre == "Minos")
+		Preso(ser == $d, apresador == $m)
+		Preso(ser == $i, apresador == $m)
+		$ceraPlumas : ObjetoNormal(nombre == "Cera y Plumas")
+		$t : Tiene(objetoReceptor == $ceraPlumas, sujeto == $d)
+	then
+		retract($t);
+		retract($ceraPlumas);
+		
+		ObjetoDivino alasIcaro = new ObjetoDivino("Alas de Ícaro");
+		insert(alasIcaro);
+    	Vuelo vueloAlasIcaro = new Vuelo(alasIcaro);
+    	insert(vueloAlasIcaro);
+    	
+    	ObjetoDivino alasDedalo = new ObjetoDivino("Alas de Dédalo");
+    	insert(alasDedalo);
+    	Vuelo vueloAlasDedalo = new Vuelo(alasDedalo);
+    	insert(vueloAlasDedalo);
+    	
+    	insert(new Obtener(alasIcaro, $i));
+    	insert(new Obtener(alasDedalo, $d));
+    	System.out.println($d.getNombre() + " usa " + $ceraPlumas.getNombre() + " para crear " + alasIcaro.getNombre() + " y " + alasDedalo.getNombre() + ".");
+end
+
+
+rule "Dédalo e Ícaro pueden escapar del laberinto"
+	salience 10
+	when
+		$m : Humano(nombre == "Minos")
+		$d : Humano(nombre == "Dédalo")
+		$i : Humano(nombre == "Ícaro")
+		$pd : Preso(ser == $d, apresador == $m)
+		$pi : Preso(ser == $i, apresador == $m)
+		Capacidad(ser == $d, poder instanceof Vuelo)
+		Capacidad(ser == $i, poder instanceof Vuelo)
+	then
+		retract($pd);
+		retract($pi);
+		insert(new Libre($d));
+		insert(new Libre($i));
+		System.out.println("Dédalo e Ícaro huyen volando del laberinto");
+end
+
+rule "Ícaro muere mientras vuela hacia el Sol"
+	salience 15
+	when
+		$i : Humano(nombre == "Ícaro")
+		$l : Libre(ser == $i)
+		$obj : ObjetoDivino(nombre == "Alas de Ícaro")
+		$p : Poder(objeto == $obj)
+		$t : Tiene(objetoReceptor == $obj, sujeto == $i)
+	then
+		retract($t);
+		retract($p);
+		retract($obj);
+		retract($l);
+		ObjetoNormal alasRotas = new ObjetoNormal("Alas de Ícaro rotas");
+		insert(alasRotas);
+		insert(new Tiene(alasRotas, $i));
+		insert(new Muerto($i));
+		System.out.println("Ícaro muere por acercarse demasiado al sol y sus alas se rompen.");
+end
+
+rule "Heroe puede encontrar Dédalo"
+	salience 2
+	when
+		$h : Heroe()
+		Libre(ser == $h)
+		$a : DiosMayor(nombre == "Atenea")
+		$d : Humano(nombre == "Dédalo")
+		Favorecido(sujeto == $h, serReceptor == $a)
+		not Encontrar(sujeto == $h, serReceptor == $d)
+	then
+		insert(new Encontrar($h, $d));
+		System.out.println($h.getNombre() + " aprende la localización a Dédalo gracias a tener el favor de Atenea.");	
+end
+
+rule "Heroe puede encontrar el cuerpo de Ícaro"
+	salience 10
+	when
+		$h : Heroe()
+		$d : Humano(nombre == "Dédalo")
+		$i : Humano(nombre == "Ícaro")
+		Libre(ser == $h)
+		Libre(ser == $d)
+		Muerto(ser == $i)
+		Encontrar(sujeto == $h, serReceptor == $d)
+		not Encontrar(sujeto == $h, serReceptor == $i)
+	then
+		insert(new Encontrar($h, $i));
+		System.out.println($h.getNombre() + " aprende la localización el cuerpo de Ícaro gracias a hablar con Dédalo.");
+end
+
+rule "Heroe encuentra Ícaro muerto"
+	salience 10
+	when
+		$h : Heroe()
+		$i : Humano(nombre == "Ícaro")
+		Libre(ser == $h)
+		Muerto(ser == $i)
+		Encontrar(sujeto == $h, serReceptor == $i)
+	then
+		insert(new Despojar($h, $i));
+		System.out.println($h.getNombre() + " encuentra el cuerpo de Ícaro y puede conseguir sus objetos.");
+end
+
+rule "Heroe pide a Dédalo arreglar alas rotas"
+	salience 10
+	when
+		$h : Heroe()
+		Libre(ser == $h)
+		$d : Humano(nombre == "Dédalo")
+		Vivo(ser == $d)
+		$obj : ObjetoNormal(nombre == "Alas de Ícaro rotas")
+		$t : Tiene(objetoReceptor == $obj, sujeto == $h)
+		Encontrar(sujeto == $h, serReceptor == $d)
+	then
+		ObjetoDivino alasIcaro = new ObjetoDivino("Alas de Ícaro");
+    	Vuelo vueloAlasIcaro = new Vuelo(alasIcaro);
+    	insert(alasIcaro);
+    	insert(vueloAlasIcaro);
+    	insert(new Obtener(alasIcaro, $h));
+		retract($obj);
+		retract($t);
+		System.out.println($h.getNombre() + " pide a Dédalo que le arregle las alas rotas y este las repara.");
+end
+
+// EXTENSION: MITO DE PERSEO
+
+rule "Heroe puede matar humano"
+	salience 10
+	when
+		$h : Heroe()
+		$m : Humano()
+		Libre(ser == $h)
+		Libre(ser == $m)
+		Enfado(sujeto == $m, serReceptor == $h)
+		$arma : Arma()
+    	Tiene(objetoReceptor == $arma, sujeto == $h)
+	then
+		insert(new Matar($h, $m));
+		System.out.println($h.getNombre() + " quiere matar a " + $m.getNombre() + ".");
+end
+
+rule "Minos se enfada con el asesino de su mujer"
+	salience 10
+	when
+		$h : Heroe()
+		$m : Humano(nombre == "Pasifae")
+		$mi : Humano(nombre == "Minos")
+    	Matar(sujeto == $h, serReceptor == $m)
+    then
+    	insert(new Enfado($h, $mi));
+    	System.out.println("Minos se enfada con " + $h.getNombre() + " por haber matado a su mujer Pasifae.");
+end
+
+// MITO DE HERACLES Y CANCERBERO
+
+rule "Heroe puede localizar a Sibilias de Cumas"
+	salience 10
+    when
+    	$h : Heroe()
+    	$had : DiosMayor(nombre == "Hades")
+    	$n : Criatura(nombre == "Las Ninfas")
+    	$s : Humano(nombre == "Sibilas de Cumas")
+	    Encontrar(sujeto == $h, serReceptor == $n)
+	    not Encontrar(sujeto == $h, serReceptor == $s)
+    	Libre(ser == $h)
+    	Libre(ser == $n)
+    	Libre(ser == $s)
+    	Enfado(sujeto == $had, serReceptor == $h)
+    then
+    	insert(new Encontrar($h, $s));
+    	System.out.println($h.getNombre() + " localiza a Sibilas de Cumas gracias a Las Ninfas.");
+end
+
+rule "Heroe puede obtener la Rama de Oro"
+	salience 10
+    when
+    	$h : Heroe()
+    	$s : Humano(nombre == "Sibilas de Cumas")
+	    Encontrar(sujeto == $h, serReceptor == $s)
+    	Libre(ser == $h)
+    	Libre(ser == $s)
+    	$obj : ObjetoNormal(nombre == "Rama de Oro")
+    	Tiene($obj == objetoReceptor, $s == sujeto)
+    then
+    	insert(new Regalar($obj, $s, $h));
+    	System.out.println($h.getNombre() + " pide a Sibilas de Cumas la Rama de Oro.");
+end
+
+rule "Zeus indica localización de Las Ninfas"
+	salience 2
+    when
+    	$h : Heroe()
+    	$n : Criatura(nombre == "Las Ninfas")
+    	$z : DiosMayor(nombre == "Zeus")
+	    not Encontrar(sujeto == $h, serReceptor == $n)
+    	Libre(ser == $h)
+    	Libre(ser == $n)
+    	Libre(ser == $z)
+    	Favorecido(sujeto == $h, serReceptor == $z)
+    then
+    	insert(new Encontrar($h, $n));
+    	System.out.println($h.getNombre() + " localiza a Las Ninfas gracias a tener el favor de Zeus.");
+end
+
+rule "Heroe puede localizar a Caronte"
+	salience 10
+    when
+    	$h : Heroe()
+    	$a : DiosMayor(nombre == "Atenea")
+    	$he : DiosMayor(nombre == "Hermes")
+    	$had : DiosMayor(nombre == "Hades")
+    	$c : DiosMenor(nombre == "Caronte")
+    	Libre(ser == $h)
+    	Libre(ser == $c)
+    	Favorecido(sujeto == $h, serReceptor == $a)
+    	Favorecido(sujeto == $h, serReceptor == $he)
+    	not Encontrar(sujeto == $h, serReceptor == $c)
+    	Enfado(sujeto == $had, serReceptor == $h)
+    then
+    	insert(new Encontrar($h, $c));
+    	System.out.println($h.getNombre() + " localiza a Caronte gracias al favor de Hermes y Atenea.");
+end
+
+rule "Heroe puede atravesar el Inframundo y encontrar a Cerbero"
+	salience 10
+    when
+    	$h : Heroe()
+    	$c : DiosMenor(nombre == "Caronte")
+    	$cer : Criatura(nombre == "Cerbero")
+    	$had : DiosMayor(nombre == "Hades")
+    	Encontrar(sujeto == $h, serReceptor == $c)
+    	Preso(apresador == $had, ser == $cer)
+    	Libre(ser == $h)
+    	Libre(ser == $c)
+    	$obj : ObjetoNormal(nombre == "Rama de Oro")
+    	Tiene($obj == objetoReceptor, $h == sujeto)
+    then
+    	insert(new Encontrar($h, $cer));
+    	insert(new Regalar($obj, $h, $c));
+    	System.out.println($h.getNombre() + " localiza a Cerbero gracias a entregar la Rama de Oro a Caronte.");
+end
+
+rule "Heroe puede matar a Cerbero"
+	salience 3
+    when
+    	$h : Heroe()
+    	$cer : Criatura(nombre == "Cerbero")
+    	$had : DiosMayor(nombre == "Hades")
+    	Encontrar(sujeto == $h, serReceptor == $cer)
+    	Preso(apresador == $had, ser == $cer)
+    	Libre(ser == $h)
+    	Tiene(objetoReceptor instanceof Arma, sujeto == $h)
+    then
+    	insert(new Matar($h, $cer));
+    	System.out.println($h.getNombre() + " es capaz de matar a Cerbero.");
+end
+
+rule "Heroe recibe favor gracias a enemistad con el apresador"
+    salience 26
+    when
+        $h : Heroe()
+        Matar(sujeto == $h, $muer:serReceptor)
+        Preso($apre:apresador, ser == $muer)
+        Enfado(sujeto == $apre, $enfa:serReceptor)
+        Libre(ser == $h)
+        eval($h.getNombre() != $enfa.getNombre())
+    then
+        insert(new Favorecido($h, $enfa));
+        System.out.println($h.getNombre() + " recibe el favor de " + $enfa.getNombre() + " por haber matado a " + $muer.getNombre() + ".");
+end
+
+// OBJETIVOS FINALES Y REGLA OBJETIVO NO CONSEGUIDO
+
+rule "Objetivo tener"
+	salience 23
+    when
+    	ObjetivoTener($obj:objeto, $s:sujeto)
+    	Tiene($obj == objetoReceptor, $s == sujeto)
+    then
+    	System.out.println("Objetivo alcanzado: " + $s.getNombre() + " obtiene " + $obj.getNombre());
+    	drools.halt();
+end
+
+rule "Objetivo liberar"
+	salience 23
+    when
+    	ObjetivoLiberar($l:liberado, $s:sujeto)
+    	Liberar($s == sujeto, $l == serReceptor)
+    then
+    	System.out.println("Objetivo alcanzado: " + $s.getNombre() + " ha liberado a " + $l.getNombre());
+    	drools.halt();
+end
+
+rule "Objetivo capacidad"
+	salience 23
+    when
+    	ObjetivoCapacidad($p:poder.getNombre(), $s:sujeto)
+    	Capacidad($s == ser, $p == poder.getNombre())
+    then
+    	System.out.println("Objetivo alcanzado: " + $s.getNombre() + " obtiene capacidad de " + $p);
+    	drools.halt();
+end
+
+rule "No llego objetivo"
+	salience -1
+    when
+
+    then
+    	System.out.println("Objetivo no alcanzado");
+    	drools.halt();
+end
